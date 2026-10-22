@@ -339,9 +339,11 @@ const forgotPassword = async (req, res, next) => {
     user.resetPasswordOtpExpires = Date.now() + 10 * 60 * 1000;
     await user.save();
 
-    console.log(`[AUTH] Password reset verification code generated for [${user.email}]. Dispatching via Resend...`);
+    console.log(`\n============================================================`);
+    console.log(`🔑 PASSWORD RESET OTP GENERATED FOR [${user.email}]: [${otp}]`);
+    console.log(`============================================================\n`);
 
-    // Send email with OTP via Resend SDK
+    // Send email with OTP
     const emailResult = await sendOtpEmail({
       to: user.email,
       name: user.name,
@@ -353,7 +355,7 @@ const forgotPassword = async (req, res, next) => {
         success: false,
         message: emailResult.error
           ? `Could not deliver verification email: ${emailResult.error}`
-          : "Failed to send verification email. Please verify your RESEND_API_KEY and EMAIL_FROM configuration in the server environment variables."
+          : "Failed to send verification email. Please check your SMTP mail server settings in server/.env."
       });
     }
 
