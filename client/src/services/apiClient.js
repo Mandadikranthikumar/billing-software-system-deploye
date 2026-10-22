@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Centralized Axios instance
 const apiClient = axios.create({
-  baseURL: "/api",
+  baseURL: import.meta.env.VITE_API_URL || "https://billing-software-system-deploye.onrender.com/api",
   headers: {
     "Content-Type": "application/json"
   }
