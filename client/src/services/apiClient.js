@@ -1,8 +1,21 @@
 import axios from "axios";
 
+// Helper to normalize and ensure baseURL always targets the /api prefix
+const getApiBaseUrl = () => {
+  const envUrl = (import.meta.env.VITE_API_URL || "").trim();
+  if (!envUrl) {
+    return "https://billing-software-system-deploye.onrender.com/api";
+  }
+  const cleanUrl = envUrl.replace(/\/+$/, "");
+  if (cleanUrl.endsWith("/api")) {
+    return cleanUrl;
+  }
+  return `${cleanUrl}/api`;
+};
+
 // Centralized Axios instance
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "https://billing-software-system-deploye.onrender.com/api",
+  baseURL: getApiBaseUrl(),
   headers: {
     "Content-Type": "application/json"
   }

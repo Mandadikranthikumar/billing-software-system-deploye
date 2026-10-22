@@ -83,41 +83,49 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // System Health Check
-app.get("/api/health", (req, res) => {
+const healthCheckHandler = (req, res) => {
   res.status(200).json({
     success: true,
     message:
       "Billing System API (Team 1 - Auth, Users & Business) is operational",
     timestamp: new Date().toISOString()
   });
-});
+};
+app.get("/api/health", healthCheckHandler);
+app.get("/health", healthCheckHandler);
 
-// Team 1 API routes
-app.use("/api/auth", authRoutes);
-app.use("/api/users", authenticate, authorizeModule("users"), userRoutes);
-app.use("/api/business", businessRoutes);
+// Register routes under both '/api' and root prefixes so both /api/auth/login and /auth/login resolve correctly
+const mountApiRoutes = (prefix = "") => {
+  // Team 1 API routes
+  app.use(`${prefix}/auth`, authRoutes);
+  app.use(`${prefix}/users`, authenticate, authorizeModule("users"), userRoutes);
+  app.use(`${prefix}/business`, businessRoutes);
 
-// Team 2 API routes
-app.use("/api/products", authenticate, authorizeModule("products"), productRoutes);
-app.use("/api/categories", authenticate, authorizeModule("categories"), categoryRoutes);
-app.use("/api/inventory", authenticate, authorizeModule("inventory"), inventoryRoutes);
+  // Team 2 API routes
+  app.use(`${prefix}/products`, authenticate, authorizeModule("products"), productRoutes);
+  app.use(`${prefix}/categories`, authenticate, authorizeModule("categories"), categoryRoutes);
+  app.use(`${prefix}/inventory`, authenticate, authorizeModule("inventory"), inventoryRoutes);
 
-// Team 3 API routes
-app.use("/api/purchases", authenticate, authorizeModule("purchases"), purchaseRoutes);
-app.use("/api/suppliers", authenticate, authorizeModule("suppliers"), supplierRoutes);
-app.use("/api/customers", authenticate, authorizeModule("customers"), customerHistoryRoutes);
-app.use("/api/customers", authenticate, authorizeModule("customers"), customerRoutes);
+  // Team 3 API routes
+  app.use(`${prefix}/purchases`, authenticate, authorizeModule("purchases"), purchaseRoutes);
+  app.use(`${prefix}/suppliers`, authenticate, authorizeModule("suppliers"), supplierRoutes);
+  app.use(`${prefix}/customers`, authenticate, authorizeModule("customers"), customerHistoryRoutes);
+  app.use(`${prefix}/customers`, authenticate, authorizeModule("customers"), customerRoutes);
 
-// Team 4 API routes
-app.use("/api/sales", authenticate, authorizeModule("sales"), saleRoutes);
-app.use("/api/invoices", authenticate, authorizeModule("invoices"), invoiceRoutes);
-app.use("/api/returns", authenticate, authorizeModule("returns"), returnRoutes);
+  // Team 4 API routes
+  app.use(`${prefix}/sales`, authenticate, authorizeModule("sales"), saleRoutes);
+  app.use(`${prefix}/invoices`, authenticate, authorizeModule("invoices"), invoiceRoutes);
+  app.use(`${prefix}/returns`, authenticate, authorizeModule("returns"), returnRoutes);
 
-// Team 5 API routes
-app.use("/api/payments", authenticate, authorizeModule("payments"), paymentRoutes);
-app.use("/api/expenses", authenticate, authorizeModule("expenses"), expenseRoutes);
-app.use("/api/reports", authenticate, authorizeModule("reports"), reportRoutes);
-app.use("/api/dashboard", authenticate, authorizeModule("dashboard"), dashboardRoutes);
+  // Team 5 API routes
+  app.use(`${prefix}/payments`, authenticate, authorizeModule("payments"), paymentRoutes);
+  app.use(`${prefix}/expenses`, authenticate, authorizeModule("expenses"), expenseRoutes);
+  app.use(`${prefix}/reports`, authenticate, authorizeModule("reports"), reportRoutes);
+  app.use(`${prefix}/dashboard`, authenticate, authorizeModule("dashboard"), dashboardRoutes);
+};
+
+mountApiRoutes("/api");
+mountApiRoutes("");
 
 // Root route
 app.get("/", (req, res) => {
