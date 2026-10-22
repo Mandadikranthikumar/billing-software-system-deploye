@@ -9,12 +9,14 @@ export default defineConfig({
     open: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
-        changeOrigin: true
+        target: 'https://billing-software-system-deploye.onrender.com',
+        changeOrigin: true,
+        secure: true
       },
       '/uploads': {
-        target: 'http://localhost:5000',
-        changeOrigin: true
+        target: 'https://billing-software-system-deploye.onrender.com',
+        changeOrigin: true,
+        secure: true
       }
     }
   }
