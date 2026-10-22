@@ -1,56 +1,43 @@
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 
 /**
- * Create Nodemailer transporter based on .env configuration
+ * Initialize Resend client lazily using process.env.RESEND_API_KEY
  */
-const getTransporter = () => {
-  // Option 1: Custom SMTP host (Brevo, SendGrid, Amazon SES, Mailgun, etc.)
-  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-    return nodemailer.createTransport({
-      host: process.env.SMTP_HOST.trim(),
-      port: Number(process.env.SMTP_PORT) || 587,
-      secure: process.env.SMTP_SECURE === "true" || Number(process.env.SMTP_PORT) === 465,
-      auth: {
-        user: process.env.SMTP_USER.trim(),
-        pass: process.env.SMTP_PASS.trim()
-      },
-      tls: {
-        rejectUnauthorized: false
-      }
-    });
+const getResendClient = () => {
+  const apiKey = (process.env.RESEND_API_KEY || "").trim();
+  if (!apiKey) {
+    return null;
   }
-
-  // Option 2: Service-based (e.g., Gmail with App Password)
-  if (process.env.EMAIL_USER && process.env.EMAIL_PASS && process.env.EMAIL_USER.trim() !== "") {
-    return nodemailer.createTransport({
-      service: process.env.EMAIL_SERVICE || "gmail",
-      auth: {
-        user: process.env.EMAIL_USER.trim(),
-        pass: process.env.EMAIL_PASS.trim().replace(/\s+/g, "") // Remove spaces from 16-digit Google App Password
-      }
-    });
-  }
-
-  return null;
+  return new Resend(apiKey);
 };
 
 /**
- * Send 6-digit OTP verification email to user's real email address
+ * Send 6-digit OTP verification email to user's real email address using Resend SDK
+ *
+ * @param {Object} params
+ * @param {string} params.to - Recipient email address
+ * @param {string} params.name - Recipient user display name
+ * @param {string} params.otp - 6-digit verification code
+ * @returns {Promise<{ sent: boolean, messageId?: string, error?: string }>}
  */
 const sendOtpEmail = async ({ to, name, otp }) => {
-  const transporter = getTransporter();
+  const resend = getResendClient();
 
-  if (!transporter) {
-    const missing = !process.env.EMAIL_PASS ? "EMAIL_PASS (Google 16-character App Password)" : "EMAIL_USER";
-    console.error(`[EMAIL SERVICE] Cannot send real email: ${missing} is missing in server/.env.`);
+  if (!resend) {
+    console.error("[EMAIL SERVICE] RESEND_API_KEY is not configured in environment variables.");
     return {
       sent: false,
-      error: `Real email delivery requires ${missing} in server/.env. Please generate a 16-character App Password at https://myaccount.google.com/apppasswords and paste it in EMAIL_PASS in server/.env.`
+      error: "Email delivery service is not configured. Please set RESEND_API_KEY in the server environment variables."
     };
   }
 
-  const fromEmail = process.env.EMAIL_USER || process.env.SMTP_USER || "noreply@spaxios.com";
-  const fromAddress = process.env.EMAIL_FROM || `"IT Spaxios Innovation" <${fromEmail}>`;
+  // Sender address: Uses EMAIL_FROM environment variable or Resend default onboarding sender
+  const fromAddress =
+    (process.env.EMAIL_FROM && process.env.EMAIL_FROM.trim()) ||
+    "IT Spaxios Innovation <onboarding@resend.dev>";
+
+  const subject = `Your Password Reset Code: ${otp} - IT Spaxios Innovation`;
+  const textContent = `Hello ${name || "User"},\n\nYour password reset verification code is: ${otp}\n\nThis code is valid for 10 minutes.\n\nIf you did not request this, please notify your administrator immediately.`;
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -101,22 +88,36 @@ const sendOtpEmail = async ({ to, name, otp }) => {
   `;
 
   try {
-    const info = await transporter.sendMail({
+    const { data, error } = await resend.emails.send({
       from: fromAddress,
-      to,
-      subject: `Your Password Reset Code: ${otp} - IT Spaxios Innovation`,
-      text: `Hello ${name || "User"},\n\nYour password reset verification code is: ${otp}\n\nThis code is valid for 10 minutes.\n\nIf you did not request this, please contact your administrator.`,
+      to: [to],
+      subject,
+      text: textContent,
       html: htmlContent
     });
-    console.log(`[EMAIL SERVICE] Real OTP email successfully sent to ${to}. MessageId: ${info.messageId}`);
-    return { sent: true, messageId: info.messageId };
-  } catch (error) {
-    console.error(`[EMAIL SERVICE] Error delivering real email via SMTP:`, error.message);
-    return { sent: false, error: error.message };
+
+    if (error) {
+      console.error("[EMAIL SERVICE] Resend delivery error:", error.message || error);
+      return {
+        sent: false,
+        error: error.message || "Failed to deliver email via Resend"
+      };
+    }
+
+    console.log(`[EMAIL SERVICE] OTP email delivered to ${to} via Resend. Message ID: ${data?.id}`);
+    return {
+      sent: true,
+      messageId: data?.id
+    };
+  } catch (err) {
+    console.error("[EMAIL SERVICE] Unexpected error while calling Resend API:", err.message || err);
+    return {
+      sent: false,
+      error: err.message || "Failed to send verification email"
+    };
   }
 };
 
 module.exports = {
   sendOtpEmail
 };
-
